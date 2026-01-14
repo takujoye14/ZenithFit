@@ -69,22 +69,11 @@
       .glow-1 { top: -10%; left: -10%; background: #6366f1; }
       .glow-2 { bottom: -10%; right: -10%; background: #a855f7; }
     </style>
-    <script type="importmap">
-    {
-      "imports": {
-        "react-dom/": "https://esm.sh/react-dom@^19.2.1/",
-        "recharts": "https://esm.sh/recharts@^3.5.1",
-        "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-        "react/": "https://esm.sh/react@^19.2.1/",
-        "react": "https://esm.sh/react@^19.2.1",
-        "lucide-react": "https://esm.sh/lucide-react@^0.560.0"
-      }
-    }
-    </script>
   </head>
-  <body>
+<body>
     <div class="glow-bg glow-1"></div>
     <div class="glow-bg glow-2"></div>
     <div id="root"></div>
-  </body>
+    <script type="module" src="/index.tsx"></script>
+</body>
 </html>

@@ -1,6 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserProfile, WorkoutSession, NutritionLog } from "../types";
 
+// gemini-2.0-flash is the current supported model for v1beta
+const MODEL_NAME = 'gemini-2.0-flash';
+
 export const generateWorkoutPlanAI = async (profile: UserProfile): Promise<WorkoutSession[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `
@@ -20,10 +23,9 @@ export const generateWorkoutPlanAI = async (profile: UserProfile): Promise<Worko
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: prompt,
+    model: MODEL_NAME,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
-      thinkingConfig: { thinkingBudget: 32768 },
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.ARRAY,
@@ -76,13 +78,14 @@ export const analyzeFoodImageAI = async (base64Image: string): Promise<Partial<N
   const prompt = "Analyze this food image. Identify the meal name and estimate total calories, protein (g), fat (g), and carbs (g).";
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: {
+    model: MODEL_NAME,
+    contents: [{
+      role: 'user',
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
         { text: prompt }
       ]
-    },
+    }],
     config: {
       responseMimeType: 'application/json',
       responseSchema: {
@@ -108,12 +111,13 @@ export const analyzeFoodImageAI = async (base64Image: string): Promise<Partial<N
 export const generateFoodImageAI = async (mealName: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
-    contents: {
+    model: 'gemini-2.0-flash', // Use 2.0 Flash for image reasoning
+    contents: [{
+      role: 'user',
       parts: [
         { text: `A realistic, high-quality photograph of a delicious plate of ${mealName} on a clean table.` },
       ],
-    }
+    }]
   });
   
   for (const part of response.candidates[0].content.parts) {
@@ -138,7 +142,7 @@ Their current training format is ${profile.currentFormat}.
 Respond as if we're in a real conversation.`;
 
   return ai.models.generateContentStream({
-    model: 'gemini-3-pro-preview',
+    model: MODEL_NAME,
     contents: [
       { role: 'user', parts: [{ text: systemPrompt }] },
       ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })),

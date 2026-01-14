@@ -88,7 +88,7 @@ const App: React.FC = () => {
 
     return (
       <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 pb-10">
-        {/* Hero Header */}
+        {/* <img src="/logo.svg" alt="ZenithFit Logo" className="w-20 h-20" /> */}
         <header className="flex justify-between items-start">
           <div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1">
