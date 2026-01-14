@@ -1,0 +1,8 @@
+{
+  "name": "ZenithFit AI",
+  "description": "An AI-powered holistic fitness companion. Generate personalized workout plans, log progress, and track nutrition with instant photo analysis.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
