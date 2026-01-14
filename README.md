@@ -1,4 +1,4 @@
-
+<link rel="icon" type="image/svg+xml" href="/logo.png" />
 # Run and deploy ZenithFit
 
 This contains everything you need to run your app locally.
