@@ -64,9 +64,6 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ plan }) => {
         <h2 className="text-3xl font-black text-white flex items-center gap-3">
           <TrendingUp className="text-indigo-500" /> Evolution
         </h2>
-        <div className="bg-indigo-500/10 px-4 py-2 rounded-2xl border border-indigo-500/20">
-          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Insight Alpha</span>
-        </div>
       </div>
 
       <div className="grid gap-8">

@@ -1,14 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { NutritionLog } from '../types';
+import { NutritionLog, UserProfile } from '../types';
 import { analyzeFoodImageAI, generateFoodImageAI } from '../services/geminiService';
 import { Camera, Plus, Loader2, Utensils, PieChart, X, Sparkles, Scan, Zap, Beef } from 'lucide-react';
 
 interface NutritionViewProps {
   logs: NutritionLog[];
+  profile: UserProfile; 
   onAddLog: (log: NutritionLog) => void;
 }
 
-const NutritionView: React.FC<NutritionViewProps> = ({ logs, onAddLog }) => {
+const NutritionView: React.FC<NutritionViewProps> = ({ logs, profile, onAddLog }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [analyzedData, setAnalyzedData] = useState<Partial<NutritionLog> | null>(null);
@@ -20,9 +21,15 @@ const NutritionView: React.FC<NutritionViewProps> = ({ logs, onAddLog }) => {
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todaysLogs = logs.filter(l => l.date.startsWith(todayStr));
+  
   const stats = todaysLogs.reduce((acc, l) => ({ 
     cal: acc.cal + l.calories, pro: acc.pro + l.protein, carb: acc.carb + l.carbs, fat: acc.fat + l.fat 
   }), { cal: 0, pro: 0, carb: 0, fat: 0 });
+
+  const getPercent = (current: number, target: number) => {
+    if (!target || target === 0) return 0;
+    return Math.min(Math.round((current / target) * 100), 100);
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,9 +89,14 @@ const NutritionView: React.FC<NutritionViewProps> = ({ logs, onAddLog }) => {
   return (
     <div className="max-w-2xl mx-auto h-full flex flex-col animate-in fade-in slide-in-from-bottom-6 duration-500">
       <div className="flex items-center justify-between mb-8">
-        <h2 className="text-3xl font-black text-white flex items-center gap-3">
-          <Utensils className="text-indigo-500" /> Daily Fuel
-        </h2>
+        <div>
+          <h2 className="text-3xl font-black text-white flex items-center gap-3">
+            <Utensils className="text-indigo-500" /> Daily Fuel
+          </h2>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1 ml-11">
+            Objective: {profile?.dietGoal || 'Not Set'}
+          </p>
+        </div>
         <div className="flex gap-3">
           <button onClick={() => setShowManualForm(true)} className="bg-slate-900 border border-white/5 p-3 rounded-2xl text-slate-400 hover:text-white transition-all shadow-xl">
             <Plus className="w-6 h-6" />
@@ -101,47 +113,57 @@ const NutritionView: React.FC<NutritionViewProps> = ({ logs, onAddLog }) => {
            <PieChart size={120} />
         </div>
         
-        <div className="flex justify-between items-end mb-8 relative z-10">
+        <div className="flex justify-between items-end mb-4 relative z-10">
           <div>
             <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black mb-1">Calories Consumed</p>
             <div className="flex items-baseline gap-2">
               <span className="text-5xl font-black text-white">{stats.cal.toLocaleString()}</span>
-              <span className="text-sm font-bold text-indigo-400 uppercase tracking-widest">Kcal</span>
+              <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+                / {profile?.caloriesTarget || 2000} Kcal
+              </span>
             </div>
           </div>
           <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-             <Zap className="w-6 h-6 text-indigo-400 fill-indigo-400/20" />
+             <Zap className={`w-6 h-6 ${stats.cal > (profile?.caloriesTarget || 2000) ? 'text-amber-500' : 'text-indigo-400'}`} />
           </div>
         </div>
 
+        <div className="w-full h-2 bg-slate-900 rounded-full mb-8 relative z-10 overflow-hidden border border-white/5">
+          <div 
+            className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 transition-all duration-1000"
+            style={{ width: `${getPercent(stats.cal, profile?.caloriesTarget || 2000)}%` }}
+          />
+        </div>
+
         <div className="grid grid-cols-3 gap-4 relative z-10">
-          <div className="bg-slate-950/50 border border-white/5 p-4 rounded-3xl text-center">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Protein</p>
-            <p className="text-xl font-black text-indigo-400">{stats.pro}g</p>
-            <div className="w-8 h-1 bg-indigo-500/20 mx-auto mt-3 rounded-full overflow-hidden">
-               <div className="h-full bg-indigo-400 rounded-full" style={{ width: '70%' }}></div>
+          <div className="bg-slate-950/50 border border-white/5 p-4 rounded-3xl">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">Protein</p>
+            <p className="text-lg font-black text-white text-center">{stats.pro}<span className="text-[10px] text-slate-500">/{profile?.proteinTarget || 150}g</span></p>
+            <div className="w-full h-1 bg-slate-900 mt-3 rounded-full overflow-hidden">
+               <div className="h-full bg-indigo-400 rounded-full transition-all duration-1000" style={{ width: `${getPercent(stats.pro, profile?.proteinTarget || 150)}%` }}></div>
             </div>
           </div>
-          <div className="bg-slate-950/50 border border-white/5 p-4 rounded-3xl text-center">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Carbs</p>
-            <p className="text-xl font-black text-fuchsia-400">{stats.carb}g</p>
-            <div className="w-8 h-1 bg-fuchsia-500/20 mx-auto mt-3 rounded-full overflow-hidden">
-               <div className="h-full bg-fuchsia-400 rounded-full" style={{ width: '45%' }}></div>
+          <div className="bg-slate-950/50 border border-white/5 p-4 rounded-3xl">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">Carbs</p>
+            <p className="text-lg font-black text-white text-center">{stats.carb}<span className="text-[10px] text-slate-500">/{profile?.carbsTarget || 250}g</span></p>
+            <div className="w-full h-1 bg-slate-900 mt-3 rounded-full overflow-hidden">
+               <div className="h-full bg-fuchsia-400 rounded-full transition-all duration-1000" style={{ width: `${getPercent(stats.carb, profile?.carbsTarget || 250)}%` }}></div>
             </div>
           </div>
-          <div className="bg-slate-950/50 border border-white/5 p-4 rounded-3xl text-center">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Fat</p>
-            <p className="text-xl font-black text-amber-400">{stats.fat}g</p>
-            <div className="w-8 h-1 bg-amber-500/20 mx-auto mt-3 rounded-full overflow-hidden">
-               <div className="h-full bg-amber-400 rounded-full" style={{ width: '30%' }}></div>
+          <div className="bg-slate-950/50 border border-white/5 p-4 rounded-3xl">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 text-center">Fat</p>
+            <p className="text-lg font-black text-white text-center">{stats.fat}<span className="text-[10px] text-slate-500">/{profile?.fatTarget || 70}g</span></p>
+            <div className="w-full h-1 bg-slate-900 mt-3 rounded-full overflow-hidden">
+               <div className="h-full bg-amber-400 rounded-full transition-all duration-1000" style={{ width: `${getPercent(stats.fat, profile?.fatTarget || 70)}%` }}></div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Manual Entry Form */}
       {(showManualForm || isGeneratingImg) && (
         <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl p-6 flex items-center justify-center animate-in fade-in duration-300">
-          <div className="glass-card w-full max-w-sm rounded-[2.5rem] p-8 relative">
+          <div className="glass-card w-full max-sm:max-w-xs max-w-sm rounded-[2.5rem] p-8 relative">
             {isGeneratingImg ? (
               <div className="flex flex-col items-center py-12">
                 <div className="relative mb-6">
@@ -200,6 +222,7 @@ const NutritionView: React.FC<NutritionViewProps> = ({ logs, onAddLog }) => {
         </div>
       )}
 
+      {/* Camera Preview / Analyzed Data Form */}
       {previewImage && (
         <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl p-6 flex items-center justify-center animate-in fade-in duration-300">
           <div className="glass-card w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl">
@@ -243,7 +266,8 @@ const NutritionView: React.FC<NutritionViewProps> = ({ logs, onAddLog }) => {
         </div>
       )}
 
-      <div className="space-y-4 pb-10">
+      {/* History List */}
+      <div className="space-y-4 pb-10 overflow-y-auto">
         <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] px-2 mb-4">Daily Diary</h3>
         {todaysLogs.length === 0 ? (
           <div className="glass-card py-20 rounded-[2.5rem] flex flex-col items-center justify-center space-y-4 opacity-50">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Onboarding from './components/Onboarding';
@@ -6,11 +5,13 @@ import WorkoutView from './components/WorkoutView';
 import NutritionView from './components/NutritionView';
 import AnalyticsView from './components/AnalyticsView';
 import CoachView from './components/CoachView';
+import ProfileView from './components/ProfileView';
 import { AppView, UserProfile, WorkoutPlan, NutritionLog } from './types';
 import { getProfile, saveProfile, getWorkoutPlan, saveWorkoutPlan, getNutritionLogs, saveNutritionLogs } from './services/storageService';
 import { generateWorkoutPlanAI } from './services/geminiService';
-// Added Dumbbell to the list of icons imported from lucide-react
-import { Activity, Flame, Trophy, Zap, ArrowRight, Star, Dumbbell } from 'lucide-react';
+import { LogOut, Activity, Flame, Trophy, Zap, ArrowRight, Star, Dumbbell } from 'lucide-react';
+import { auth } from './src/firebase-config';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>(AppView.ONBOARDING);
@@ -19,28 +20,51 @@ const App: React.FC = () => {
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Listener for Authentication State
   useEffect(() => {
-    const savedProfile = getProfile();
-    const savedPlan = getWorkoutPlan();
-    const savedLogs = getNutritionLogs();
-
-    if (savedProfile) {
-      setProfile(savedProfile);
-      setNutritionLogs(savedLogs);
-      if (savedProfile.hasPlan && savedPlan) {
-        setWorkoutPlan(savedPlan);
-        setView(AppView.DASHBOARD);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        loadData();
       } else {
+        // Clear state on logout
+        setProfile(null);
+        setWorkoutPlan(null);
+        setNutritionLogs([]);
         setView(AppView.ONBOARDING);
       }
-    }
+    });
+    return () => unsubscribe();
   }, []);
 
-  const handleOnboardingComplete = async (newProfile: UserProfile) => {
-    setProfile(newProfile);
-    saveProfile(newProfile);
-    setIsGenerating(true);
+  const loadData = async () => {
+    try {
+      const savedProfile = await getProfile();
+      // Only proceed if a profile actually exists
+      if (savedProfile) {
+        const savedPlan = await getWorkoutPlan();
+        const savedLogs = await getNutritionLogs();
 
+        setProfile(savedProfile);
+        setNutritionLogs(savedLogs);
+        
+        if (savedProfile.hasPlan && savedPlan) {
+          setWorkoutPlan(savedPlan);
+          setView(AppView.DASHBOARD);
+        } else {
+          setView(AppView.ONBOARDING);
+        }
+      } else {
+        // No profile found, ensure we stay on onboarding
+        setView(AppView.ONBOARDING);
+      }
+    } catch (error) {
+      console.error("Firebase fetch failed, staying on onboarding:", error);
+      setView(AppView.ONBOARDING); // Force onboarding view even if fetch fails
+    }
+  };
+
+  const handleOnboardingComplete = async (newProfile: UserProfile) => {
+    setIsGenerating(true);
     try {
       const sessions = await generateWorkoutPlanAI(newProfile);
       const newPlan: WorkoutPlan = {
@@ -51,31 +75,39 @@ const App: React.FC = () => {
         startDate: new Date().toISOString()
       };
 
-      setWorkoutPlan(newPlan);
-      saveWorkoutPlan(newPlan);
-      
+      await saveWorkoutPlan(newPlan);
       const updatedProfile = { ...newProfile, hasPlan: true };
+      await saveProfile(updatedProfile);
+
+      setWorkoutPlan(newPlan);
       setProfile(updatedProfile);
-      saveProfile(updatedProfile);
-      
       setView(AppView.DASHBOARD);
     } catch (error) {
-      console.error("AI Generation Error", error);
-      alert("Failed to generate workout. Please try again.");
+      console.error("AI/Firebase Error:", error);
+      alert("Failed to initialize your plan. Please check your connection.");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleUpdatePlan = (updatedPlan: WorkoutPlan) => {
-    setWorkoutPlan(updatedPlan);
-    saveWorkoutPlan(updatedPlan);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // State is cleared by the onAuthStateChanged listener above
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
-  const handleAddNutritionLog = (log: NutritionLog) => {
+  const handleUpdatePlan = async (updatedPlan: WorkoutPlan) => {
+    setWorkoutPlan(updatedPlan);
+    await saveWorkoutPlan(updatedPlan);
+  };
+
+  const handleAddNutritionLog = async (log: NutritionLog) => {
     const newLogs = [log, ...nutritionLogs];
     setNutritionLogs(newLogs);
-    saveNutritionLogs(newLogs);
+    await saveNutritionLogs(newLogs);
   };
 
   const Dashboard = () => {
@@ -88,19 +120,33 @@ const App: React.FC = () => {
 
     return (
       <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700 pb-10">
-        {/* <img src="/logo.svg" alt="ZenithFit Logo" className="w-20 h-20" /> */}
         <header className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1">
-              Hey, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">{profile.name}</span>
-            </h1>
-            <p className="text-slate-400 font-medium">Your goal: {profile.goal}</p>
-          </div>
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-fuchsia-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-            <div className="relative w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800 shadow-2xl">
-              <Trophy className="text-amber-400 w-7 h-7" />
+          <div className="flex items-center gap-6">
+            <img src="/logo.png" alt="ZenithFit Logo" className="w-24 h-24 rounded-2xl border border-white/10 shadow-2xl" />
+            <div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-white mb-1">
+                Hey, <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">{profile.name}</span>
+              </h1>
+              <p className="text-slate-400 font-medium">Your goal: {profile.goal}</p>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Logout Button */}
+            <button 
+              onClick={handleLogout}
+              className="p-3 bg-slate-900/50 hover:bg-red-500/10 border border-white/5 rounded-2xl text-slate-500 hover:text-red-400 transition-all group"
+              title="Sign Out"
+            >
+              <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+            </button>
+
+            {/* <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-fuchsia-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+              <div className="relative w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800 shadow-2xl">
+                <Trophy className="text-amber-400 w-7 h-7" />
+              </div>
+            </div> */}
           </div>
         </header>
 
@@ -139,7 +185,6 @@ const App: React.FC = () => {
 
         {/* Hero Workout Card */}
         <div className="relative glass-card rounded-[2.5rem] p-8 overflow-hidden group">
-          {/* Subtle Background Art */}
           <div className="absolute top-0 right-0 p-4 opacity-[0.03] scale-150 rotate-12 transition-transform duration-700 group-hover:scale-[1.7] group-hover:rotate-[20deg]">
             <Dumbbell size={200} />
           </div>
@@ -209,8 +254,9 @@ const App: React.FC = () => {
       {view === AppView.DASHBOARD && <Dashboard />}
       {view === AppView.WORKOUT && workoutPlan && <WorkoutView plan={workoutPlan} onUpdatePlan={handleUpdatePlan} />}
       {view === AppView.COACH && <CoachView profile={profile} />}
-      {view === AppView.NUTRITION && <NutritionView logs={nutritionLogs} onAddLog={handleAddNutritionLog} />}
       {view === AppView.ANALYTICS && workoutPlan && <AnalyticsView plan={workoutPlan} />}
+      {view === AppView.PROFILE && <ProfileView profile={profile} onLogout={handleLogout} />}
+      {view === AppView.NUTRITION && profile && (<NutritionView logs={nutritionLogs} profile={profile} onAddLog={handleAddNutritionLog} />)}
     </Layout>
   );
 };

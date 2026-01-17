@@ -24,6 +24,11 @@ export interface UserProfile {
   constraints: string;
   currentFormat: string; // e.g. "PPL", "Upper/Lower", "Full Body"
   hasPlan: boolean;
+  dietGoal: DietGoal;
+  caloriesTarget: number;
+  proteinTarget: number;
+  carbsTarget: number;
+  fatTarget: number;
 }
 
 export interface ExerciseSet {
@@ -72,6 +77,12 @@ export interface NutritionLog {
   imageUrl?: string;
 }
 
+export enum DietGoal {
+  CUT = 'Cutting',
+  MAINTAIN = 'Maintaining',
+  BULK = 'Bulking'
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -92,5 +103,6 @@ export enum AppView {
   WORKOUT = 'WORKOUT',
   NUTRITION = 'NUTRITION',
   ANALYTICS = 'ANALYTICS',
+  PROFILE = 'PROFILE',
   COACH = 'COACH'
 }
